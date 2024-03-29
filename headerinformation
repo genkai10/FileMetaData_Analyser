@@ -1,0 +1,47 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <map>
+
+// Define magic numbers/signatures for various file types
+std::map<std::string, std::string> fileSignatures = {
+    {"FFD8FF", "JPEG"},
+    {"89504E47", "PNG"},
+    {"47494638", "GIF"},
+    // Add more signatures as needed
+};
+
+// Function to read the header of the file and determine its type
+std::string determineFileType(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) {
+        std::cerr << "Error opening file " << filename << std::endl;
+        return "Unknown";
+    }
+
+    char buffer[8] = {0}; // Read the first 8 bytes
+    file.read(buffer, 8);
+    std::string signature(buffer, 0, 8);
+
+    file.close();
+
+    // Check the signature against known file types
+    for (const auto& entry : fileSignatures) {
+        if (signature.find(entry.first) != std::string::npos) {
+            return entry.second;
+        }
+    }
+
+    return "Unknown";
+}
+
+int main() {
+    std::string filename;
+    std::cout << "Enter the file name: ";
+    std::cin >> filename;
+
+    std::string fileType = determineFileType(filename);
+    std::cout << "File type: " << fileType << std::endl;
+
+    return 0;
+}
