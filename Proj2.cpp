@@ -14,7 +14,7 @@ bool checkFileSignature(const std::string& filename, const std::string& signatur
 }
 
 int main() {
-    std::string filename = "img.jpg";
+    std::string filename = "fileType.cpp";
     std::string jpgSignature = "\xFF\xD8\xFF"; // JPEG file signature
 
     if (checkFileSignature(filename, jpgSignature)) {
