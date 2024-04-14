@@ -4,12 +4,14 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
-#include "signature.cpp"
+#include "signature3.cpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include <iostream>
 #include <string>
 #include <concepts>
+#include <vector>
+#include <algorithm>
 
 namespace fs = std::filesystem;
 
@@ -85,7 +87,7 @@ void handleImage(const std::string& filename, ImageDimensions& dimensions) {
         dimensions.height = height;
         std::cout << "Image Dimensions Retrieved Successfully: " << dimensions.width << "x" << dimensions.height << std::endl;
     } else {
-        std::cerr << " This type of file does not have Image Dimensions supported" << filename << std::endl;
+        std::cerr << "This type of file does not have Image Dimensions supported" << std::endl;
     }
 }
 
@@ -98,23 +100,65 @@ int main() {
     std::filesystem::path pathObj(filepath);
     std::string filename = pathObj.filename().string();
     
-    // Get metadata using variadic templates
+    // Get metadata for the single file
     FileMetadata metadata = getMetadata(filepath, calculateSize, calculateCreationTime, calculateLastModifiedTime);
     
     // Determine file type
-    metadata.type = determineFileType<8>(metadata.path);
+    metadata.type = determineFileType(metadata.path, 8);
     
-    // Print metadata
+    // Print metadata for the single file
+    std::cout << "Metadata for Single File:" << std::endl;
     std::cout << "Type: " << metadata.type << std::endl;
     std::cout << "Filename: " << metadata.filename << std::endl;
     std::cout << "Path: " << metadata.path << std::endl;
     std::cout << "Size: " << metadata.size << " bytes" << std::endl;
     std::cout << "Creation Time: " << std::asctime(std::localtime(&metadata.creation_time));
     std::cout << "Last Modified Time: " << std::asctime(std::localtime(&metadata.last_modified_time));
-    
+
     ImageDimensions dimensions;
     getMetadata(metadata.path, dimensions, handleImage);
     
+    // Ask user if they want to compare multiple files
+    char choice;
+    std::cout << "Do you want to compare multiple files? (y/n): ";
+    std::cin >> choice;
+    
+    if (choice == 'y' || choice == 'Y') {
+        std::vector<std::string> filepaths;
+        std::string filepath;
+        do {
+            std::cout << "Enter the file path: ";
+            std::cin >> filepath;
+            filepaths.push_back(filepath);
+            std::cout << "Do you want to add another file? (y/n): ";
+            std::cin >> choice;
+        } while (choice == 'y' || choice == 'Y');
+        
+        // Gather metadata for each file
+        std::vector<FileMetadata> metadatas;
+        for (const auto& path : filepaths) {
+            FileMetadata metadata = getMetadata(path, calculateSize, calculateCreationTime, calculateLastModifiedTime);
+            metadata.type = determineFileType(metadata.path, 8);
+            metadatas.push_back(metadata);
+        }
+        
+        // Find the largest file - lambda expressions are used here
+        auto largestFile = std::max_element(metadatas.begin(), metadatas.end(), [](const FileMetadata& a, const FileMetadata& b) {
+            return a.size < b.size;
+        });
+        
+        // Print metadata for the largest file
+        std::cout << "Largest File:" << std::endl;
+        std::cout << "Type: " << largestFile->type << std::endl;
+        std::cout << "Filename: " << largestFile->filename << std::endl;
+        std::cout << "Path: " << largestFile->path << std::endl;
+        std::cout << "Size: " << largestFile->size << " bytes" << std::endl;
+        std::cout << "Creation Time: " << std::asctime(std::localtime(&largestFile->creation_time));
+        std::cout << "Last Modified Time: " << std::asctime(std::localtime(&largestFile->last_modified_time));
+        
+        ImageDimensions dimensions;
+        getMetadata(largestFile->path, dimensions, handleImage);
+    }
+    
     return 0;
 }
-

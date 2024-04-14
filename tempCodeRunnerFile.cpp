@@ -1,12 +1,18 @@
-int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
-        return 1;
+
+    } else {
+        std::cerr << " This type of file does not have Image Dimensions supported" << filename << std::endl;
     }
-
-    std::string filename = argv[1];
-    std::string type = determineFileType<8>(filename); // Adjust size according to your needs
-    std::cout << "Signature and file type for " << filename << ": " << type << std::endl;
-
-    return 0;
 }
+
+int main() {
+    std::string filepath;
+    std::cout << "Enter the file path: ";
+    std::cin >> filepath;
+    
+    // Get just the filename from the full path
+    std::filesystem::path pathObj(filepath);
+    std::string filename = pathObj.filename().string();
+    
+    // Get metadata using variadic templates
+    FileMetadata metadata = getMetadata(filepath, calculateSize, calculateCreationTime, calculateLastModifiedTime);
+    
