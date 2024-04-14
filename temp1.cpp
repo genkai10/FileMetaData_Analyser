@@ -1,8 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <iomanip> // for std::hex
-#include <concepts> // for concepts
+#include <iomanip>
+#include <concepts>
+#include <array>
+#include <sstream>
+#include <stdexcept>
 #include <cstring>
 
 // Define a concept for signature
@@ -12,38 +15,29 @@ concept Signature = requires(T s) {
     { s.data() } -> std::convertible_to<const char*>;
 };
 
-// Define a concept for file type
-template<typename T>
-concept FileType = requires(T s) {
-    { std::string(s) };
-};
-
 // File signature and type pair
-template<Signature S, FileType T>
+template<Signature S>
 struct SignatureFileType {
     S signature;
-    T fileType;
+    const char* fileType;
 };
 
 // List of supported file signatures and types
-constexpr auto fileSignatures = [] {
-    return std::array{
-        SignatureFileType{"\xFF\xD8\xFF\xE0\x00\x10\x4A\x46", "JPEG"},
-        SignatureFileType{"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", "PNG"},
-        SignatureFileType{"\x25\x50\x44\x46", "PDF"},
-        SignatureFileType{"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", "DOC"},
-        SignatureFileType{"\x47\x49\x46\x38\x39\x61", "GIF"},
-        SignatureFileType{"\x2F\x2F", "CPP"},
-        SignatureFileType{"\xEF\xBB\xBF", "UTF-8 text"}
-        // Add more signatures as needed
-    };
-}();
+constexpr std::array fileSignatures = {
+    SignatureFileType<std::array<char, 8>>{{'\xFF', '\xD8', '\xFF', '\xE0', '\x00', '\x10', '\x4A', '\x46'}, "JPEG"},
+    SignatureFileType<std::array<char, 8>>{{'\x89', '\x50', '\x4E', '\x47', '\x0D', '\x0A', '\x1A', '\x0A'}, "PNG"},
+    SignatureFileType<std::array<char, 4>>{{'\x25', '\x50', '\x44', '\x46'}, "PDF"},
+    SignatureFileType<std::array<char, 8>>{{'\xD0', '\xCF', '\x11', '\xE0', '\xA1', '\xB1', '\x1A', '\xE1'}, "DOC"},
+    SignatureFileType<std::array<char, 6>>{{'\x47', '\x49', '\x46', '\x38', '\x39', '\x61'}, "GIF"},
+    SignatureFileType<std::array<char, 2>>{{'\x2F', '\x2F'}, "CPP"},
+    SignatureFileType<std::array<char, 3>>{{'\xEF', '\xBB', '\xBF'}, "UTF-8 text"}
+};
 
 // Function to get file type from signature
 template<Signature S>
 std::string getFileType(const S& signature) {
     for (const auto& entry : fileSignatures) {
-        if (std::memcmp(signature.data(), entry.signature, std::min(signature.size(), std::size(entry.signature))) == 0) {
+        if (std::memcmp(signature.data(), entry.signature.data(), signature.size()) == 0) {
             return entry.fileType;
         }
     }
@@ -54,13 +48,14 @@ std::string getFileType(const S& signature) {
 template<Signature S>
 std::string determineFileType(const std::string& filename) {
     std::ifstream file(filename, std::ios::binary);
-    if (!file) {
-        std::cerr << "Error opening file: " << filename << std::endl;
-        return "Unknown";
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening file: " + filename);
     }
 
     S buffer;
-    file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), buffer.size())) {
+        throw std::runtime_error("Error reading file: " + filename);
+    }
 
     std::string fileType = getFileType(buffer);
     std::stringstream signatureStream;
@@ -80,8 +75,13 @@ int main(int argc, char* argv[]) {
     }
 
     std::string filename = argv[1];
-    std::string type = determineFileType<std::array<char, 8>>(filename); // Adjust size according to your needs
-    std::cout << "Signature and file type for " << filename << ": " << type << std::endl;
+    try {
+        std::string type = determineFileType<std::array<char, 8>>(filename); // Adjust size according to your needs
+        std::cout << "Signature and file type for " << filename << ": " << type << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }
