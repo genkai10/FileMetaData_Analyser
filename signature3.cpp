@@ -98,6 +98,61 @@ public:
 
 // Add more derived classes for other file types as needed...
 
+// Type trait for determining file type object
+template<typename T>
+struct FileTypeTraits {};
+
+template<>
+struct FileTypeTraits<JPEGFileType> {
+    static SignatureFileType* createInstance() {
+        return new JPEGFileType();
+    }
+};
+
+template<>
+struct FileTypeTraits<PNGFileType> {
+    static SignatureFileType* createInstance() {
+        return new PNGFileType();
+    }
+};
+
+template<>
+struct FileTypeTraits<PDFFileType> {
+    static SignatureFileType* createInstance() {
+        return new PDFFileType();
+    }
+};
+
+template<>
+struct FileTypeTraits<DOCXFileType> {
+    static SignatureFileType* createInstance() {
+        return new DOCXFileType();
+    }
+};
+
+template<>
+struct FileTypeTraits<MP3FileType> {
+    static SignatureFileType* createInstance() {
+        return new MP3FileType();
+    }
+};
+
+template<>
+struct FileTypeTraits<MP4FileType> {
+    static SignatureFileType* createInstance() {
+        return new MP4FileType();
+    }
+};
+
+template<>
+struct FileTypeTraits<GIFFileType> {
+    static SignatureFileType* createInstance() {
+        return new GIFFileType();
+    }
+};
+
+// Add more type traits for other file types as needed...
+
 // Lambda template for determining file type based on signature
 auto determineFileType = [](const std::string& filename, size_t signatureSize) -> std::string {
     std::ifstream file(filename, std::ios::binary);
@@ -109,24 +164,37 @@ auto determineFileType = [](const std::string& filename, size_t signatureSize) -
     char buffer[signatureSize];
     file.read(buffer, sizeof(buffer));
 
-    // Array of file type objects
-    SignatureFileType* fileTypeObjects[] = {new JPEGFileType(), new PNGFileType(), new PDFFileType(), new DOCXFileType(), new MP3FileType(), new MP4FileType() /* Add more objects as needed... */};
+    // Iterate over file type traits and create instance of matching file type
+    if (FileTypeTraits<JPEGFileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<JPEGFileType>::createInstance()->getFileType();
+        delete FileTypeTraits<JPEGFileType>::createInstance();
+        return fileTypeString;
+    } else if (FileTypeTraits<PNGFileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<PNGFileType>::createInstance()->getFileType();
+        delete FileTypeTraits<PNGFileType>::createInstance();
+        return fileTypeString;
+    } else if (FileTypeTraits<PDFFileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<PDFFileType>::createInstance()->getFileType();
+        delete FileTypeTraits<PDFFileType>::createInstance();
+        return fileTypeString;
+    } else if (FileTypeTraits<DOCXFileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<DOCXFileType>::createInstance()->getFileType();
+        delete FileTypeTraits<DOCXFileType>::createInstance();
+        return fileTypeString;
+    } else if (FileTypeTraits<MP3FileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<MP3FileType>::createInstance()->getFileType();
+        delete FileTypeTraits<MP3FileType>::createInstance();
+        return fileTypeString;
+    } else if (FileTypeTraits<MP4FileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<MP4FileType>::createInstance()->getFileType();
+        delete FileTypeTraits<MP4FileType>::createInstance();
+        return fileTypeString;
+    } else if (FileTypeTraits<GIFFileType>::createInstance()->matchSignature(buffer, signatureSize)) {
+        std::string fileTypeString = FileTypeTraits<GIFFileType>::createInstance()->getFileType();
+        delete FileTypeTraits<GIFFileType>::createInstance();
+        return fileTypeString;
+    }
 
-    // Iterate over file type objects and check if any matches the signature
-    for (const auto& fileType : fileTypeObjects) {
-        if (fileType->matchSignature(buffer, signatureSize)) {
-            std::string fileTypeString = fileType->getFileType();
-            for(auto &f : fileTypeObjects)
-            {
-                delete f;
-            }
-            return fileTypeString;
-        }
-    }
-    for(auto &f : fileTypeObjects)
-    {
-        delete f;
-    }
     return "Unknown";
 };
 

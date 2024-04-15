@@ -115,9 +115,14 @@ int main() {
     std::cout << "Creation Time: " << std::asctime(std::localtime(&metadata.creation_time));
     std::cout << "Last Modified Time: " << std::asctime(std::localtime(&metadata.last_modified_time));
 
-    ImageDimensions dimensions;
-    getMetadata(metadata.path, dimensions, handleImage);
-    
+    if (metadata.type == "PNG" || metadata.type == "JPEG" || metadata.type == "GIF") {
+        // Handle image metadata retrieval
+        ImageDimensions dimensions;
+        getMetadata(metadata.path, dimensions, handleImage);
+    } else {
+        // Calculate metadata for non-image files
+        std::cout << "Not an image type of file, hence no dimensions for this file" << std::endl;
+    }
     // Ask user if they want to compare multiple files
     char choice;
     std::cout << "Do you want to compare multiple files? (y/n): ";
