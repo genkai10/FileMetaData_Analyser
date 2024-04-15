@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 
+
 // Base class for signature and file type pair
 class SignatureFileType {
 public:
@@ -151,6 +152,7 @@ struct FileTypeTraits<GIFFileType> {
     }
 };
 
+
 // Add more type traits for other file types as needed...
 
 // Lambda template for determining file type based on signature
@@ -197,6 +199,7 @@ auto determineFileType = [](const std::string& filename, size_t signatureSize) -
 
     return "Unknown";
 };
+
 
 // int main(int argc, char* argv[]) {
 //     if (argc != 3) {

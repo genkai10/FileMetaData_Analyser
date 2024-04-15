@@ -12,8 +12,15 @@
 #include <concepts>
 #include <vector>
 #include <algorithm>
+#include <typeinfo>
 
 namespace fs = std::filesystem;
+
+template<typename T>
+concept IdenticalString = requires(T str) {
+    { str == std::string("Unknown") }; // Requires T to be comparable with the given string
+};
+
 
 // Define a struct to hold metadata
 struct FileMetadata {
@@ -23,13 +30,24 @@ struct FileMetadata {
     std::time_t creation_time;
     std::time_t last_modified_time;
     std::string type;
+    int width = 0; // additional metadata for image files
+    int height = 0; // additional metadata for image files
+
+    // Declare getMetadata as a friend function template
+    template<typename... Args>
+    friend FileMetadata getMetadata(const std::string& filename, Args&&... args);
 };
 
-// Define a struct to hold image dimensions
-struct ImageDimensions {
-    int width;
-    int height;
-};
+template<typename T>
+void compareStrings(const T& str) requires IdenticalString<T> {
+
+    if (str == "Unknown") {
+        std::cout << "Variable is 'Unknown'. Ending program." << std::endl;
+        std::exit(EXIT_FAILURE);
+    } else {
+        std::cout << "File Type known. Proceeding" << std::endl;
+    }
+}
 
 // Function to get file metadata
 template<typename... Args>
@@ -40,6 +58,7 @@ FileMetadata getMetadata(const std::string& filename, Args&&... args) {
     
     // Calculate metadata based on variadic arguments
     (..., args(metadata)); // Call each function in args with metadata
+    
     
     return metadata;
 }
@@ -67,28 +86,50 @@ void calculateLastModifiedTime(FileMetadata& metadata) {
     }
 }
 
-// Concept for handling image files
-template<typename T>
-concept ImageHandler = requires(T handler, const std::string& filename, ImageDimensions& dimensions) {
-    { stbi_info(filename.c_str(), &dimensions.width, &dimensions.height, nullptr) };
-};
-
-// Template specialization for image dimensions
-template <ImageHandler T>
-void getMetadata(const std::string& filename, ImageDimensions& dimensions, T handler) {
-    handler(filename, dimensions);
+// Function to handle extra metadata for JPEG files
+void handleExtraMetadataJPEG(FileMetadata& metadata) {
+    int width, height, channels;
+    unsigned char* image = stbi_load(metadata.path.c_str(), &width, &height, &channels, 0);
+    if (image) {
+        metadata.width = width;
+        metadata.height = height;
+        stbi_image_free(image);
+    } else {
+        std::cerr << "Error: Unable to load image " << metadata.path << std::endl;
+    }
 }
 
-// Function to handle image files
-void handleImage(const std::string& filename, ImageDimensions& dimensions) {
-    int width, height, channels;
-    if (stbi_info(filename.c_str(), &width, &height, &channels)) {
-        dimensions.width = width;
-        dimensions.height = height;
-        std::cout << "Image Dimensions Retrieved Successfully: " << dimensions.width << "x" << dimensions.height << std::endl;
-    } else {
-        std::cerr << "This type of file does not have Image Dimensions supported" << std::endl;
-    }
+// Function to handle extra metadata for PNG files
+void handleExtraMetadataPNG(FileMetadata& metadata) {
+    handleExtraMetadataJPEG(metadata); // PNG metadata handled similarly to JPEG
+}
+
+// Function to handle extra metadata for GIF files
+void handleExtraMetadataGIF(FileMetadata& metadata) {
+    // GIF metadata handling logic here
+     handleExtraMetadataJPEG(metadata);
+}
+
+// Templated function to handle extra metadata based on file type
+template<typename FileType>
+void handleExtraMetadata(FileMetadata& metadata);
+
+// Specialization for JPEG files
+template<>
+void handleExtraMetadata<std::integral_constant<int, 0>>(FileMetadata& metadata) {
+    handleExtraMetadataJPEG(metadata);
+}
+
+// Specialization for PNG files
+template<>
+void handleExtraMetadata<std::integral_constant<int, 1>>(FileMetadata& metadata) {
+    handleExtraMetadataPNG(metadata);
+}
+
+// Specialization for GIF files
+template<>
+void handleExtraMetadata<std::integral_constant<int, 2>>(FileMetadata& metadata) {
+    handleExtraMetadataGIF(metadata);
 }
 
 int main() {
@@ -100,11 +141,27 @@ int main() {
     std::filesystem::path pathObj(filepath);
     std::string filename = pathObj.filename().string();
     
+    
+
     // Get metadata for the single file
     FileMetadata metadata = getMetadata(filepath, calculateSize, calculateCreationTime, calculateLastModifiedTime);
     
     // Determine file type
-    metadata.type = determineFileType(metadata.path, 8);
+    // metadata.type = determineFileType(metadata.path, 8);
+
+    const std::type_info& type = typeid(metadata.type);
+    std::cout << "Type of metadata.type: " << type.name() << std::endl;
+
+    compareStrings(metadata.type);
+
+    // Handle extra metadata based on file type
+    if (metadata.type == "JPEG") {
+        handleExtraMetadata<std::integral_constant<int, 0>>(metadata);
+    } else if (metadata.type == "PNG") {
+        handleExtraMetadata<std::integral_constant<int, 1>>(metadata);
+    } else if (metadata.type == "GIF") {
+        handleExtraMetadata<std::integral_constant<int, 2>>(metadata);
+    }
     
     // Print metadata for the single file
     std::cout << "Metadata for Single File:" << std::endl;
@@ -114,15 +171,11 @@ int main() {
     std::cout << "Size: " << metadata.size << " bytes" << std::endl;
     std::cout << "Creation Time: " << std::asctime(std::localtime(&metadata.creation_time));
     std::cout << "Last Modified Time: " << std::asctime(std::localtime(&metadata.last_modified_time));
-
-    if (metadata.type == "PNG" || metadata.type == "JPEG" || metadata.type == "GIF") {
-        // Handle image metadata retrieval
-        ImageDimensions dimensions;
-        getMetadata(metadata.path, dimensions, handleImage);
-    } else {
-        // Calculate metadata for non-image files
-        std::cout << "Not an image type of file, hence no dimensions for this file" << std::endl;
+    if (metadata.width!=0 && metadata.height!=0) {
+        std::cout << "Width: " << metadata.width << std::endl;
+        std::cout << "Height: " << metadata.height << std::endl;
     }
+    
     // Ask user if they want to compare multiple files
     char choice;
     std::cout << "Do you want to compare multiple files? (y/n): ";
@@ -144,6 +197,13 @@ int main() {
         for (const auto& path : filepaths) {
             FileMetadata metadata = getMetadata(path, calculateSize, calculateCreationTime, calculateLastModifiedTime);
             metadata.type = determineFileType(metadata.path, 8);
+            if (metadata.type == "JPEG") {
+                handleExtraMetadata<std::integral_constant<int, 0>>(metadata);
+            } else if (metadata.type == "PNG") {
+                handleExtraMetadata<std::integral_constant<int, 1>>(metadata);
+            } else if (metadata.type == "GIF") {
+                handleExtraMetadata<std::integral_constant<int, 2>>(metadata);
+            }
             metadatas.push_back(metadata);
         }
         
@@ -160,9 +220,10 @@ int main() {
         std::cout << "Size: " << largestFile->size << " bytes" << std::endl;
         std::cout << "Creation Time: " << std::asctime(std::localtime(&largestFile->creation_time));
         std::cout << "Last Modified Time: " << std::asctime(std::localtime(&largestFile->last_modified_time));
-        
-        ImageDimensions dimensions;
-        getMetadata(largestFile->path, dimensions, handleImage);
+        if (metadata.width!=0 && metadata.height!=0) {
+            std::cout << "Width: " << largestFile->width << std::endl;
+            std::cout << "Height: " << largestFile->height << std::endl;
+        }
     }
     
     return 0;

@@ -1,1 +1,0 @@
-Do different txt files have different file signatures?
